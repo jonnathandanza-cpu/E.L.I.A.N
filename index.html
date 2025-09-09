@@ -29,7 +29,7 @@
     }
     
     #logo-svg {
-      width: 220px; /* Un poco más grande para más impacto */
+      width: 220px;
       height: 220px;
       margin-bottom: 1em;
       filter: drop-shadow(0 0 15px #00ffff);
@@ -41,7 +41,7 @@
       stroke: #00ffff;
       stroke-width: 1.5px;
       transform-origin: center;
-      filter: drop-shadow(0 0 3px #00ffff); /* Sutil brillo para cada elemento */
+      filter: drop-shadow(0 0 3px #00ffff);
     }
 
     .tech-core {
@@ -52,7 +52,6 @@
       animation: core-glow 1.5s infinite alternate;
     }
 
-    /* Animaciones para las diferentes capas */
     .outer-ring {
       animation: rotate-slow 20s linear infinite;
     }
@@ -60,7 +59,7 @@
       animation: rotate-fast 10s linear infinite reverse;
     }
     .grid-lines {
-      stroke-dasharray: 40 20; /* Patrón de puntos/guiones */
+      stroke-dasharray: 40 20;
       stroke-dashoffset: 0;
       animation: dash-flow 5s linear infinite;
     }
@@ -92,7 +91,7 @@
 
     @keyframes dash-flow {
       from { stroke-dashoffset: 0; }
-      to { stroke-dashoffset: 60; } /* Ajustado para el patrón dasharray */
+      to { stroke-dashoffset: 60; }
     }
 
     @keyframes arc-flow {
@@ -130,16 +129,13 @@
   <div id="header-container">
     <svg id="logo-svg" viewBox="0 0 200 200">
       <circle class="tech-element outer-ring grid-lines" cx="100" cy="100" r="90" />
-      
       <path class="tech-element inner-ring energy-arcs" 
             d="M 100 10 C 140 10, 190 60, 190 100 C 190 140, 140 190, 100 190 C 60 190, 10 140, 10 100 C 10 60, 60 10, 100 10" 
             stroke-width="2.5px"/>
-
       <polygon class="tech-element" 
                points="100,60 130,80 130,120 100,140 70,120 70,80" 
                transform-origin="center" 
                style="animation: rotate-slow 18s linear infinite reverse;"/>
-
       <circle class="tech-core" cx="100" cy="100" r="15" />
     </svg>
     <h1>E.L.I.A.N.</h1>
@@ -154,30 +150,24 @@
     const errorDiv = document.getElementById("error");
     let reconocimiento;
     let isSpeaking = false;
-    let isMicPermissionGranted = false; // Bandera para rastrear el permiso del micrófono
-
-    // --- Funciones de Voz y Reconocimiento ---
+    let mediaStream = null; // Para mantener la referencia del stream de audio
 
     function hablar(texto) {
       isSpeaking = true;
       const voz = new SpeechSynthesisUtterance(texto);
       voz.lang = "es-ES";
       voz.pitch = 0.9;
-      voz.rate = 0.85; // Reducido ligeramente para un tono menos robótico
+      voz.rate = 0.85;
 
       const seleccionarVoz = () => {
         const voces = window.speechSynthesis.getVoices();
-        // Intentar encontrar una voz premium o una voz de Google Español más natural
         const vozElegida = voces.find(v => v.name.toLowerCase().includes("google español") && v.name.toLowerCase().includes("premium")) ||
                                voces.find(v => v.name.toLowerCase().includes("google español")) ||
-                               voces.find(v => v.name.toLowerCase().includes("pablo")) || // Mantiene la opción de Pablo si está disponible
-                               voces.find(v => v.lang === 'es-ES' && v.name.toLowerCase().includes("male")) || // Voz masculina en español
-                               voces.find(v => v.lang === 'es-ES'); // Cualquier otra voz en español
+                               voces.find(v => v.name.toLowerCase().includes("pablo")) ||
+                               voces.find(v => v.lang === 'es-ES' && v.name.toLowerCase().includes("male")) ||
+                               voces.find(v => v.lang === 'es-ES');
         if (vozElegida) {
           voz.voice = vozElegida;
-          console.log("Voz seleccionada:", vozElegida.name);
-        } else {
-          console.warn("No se encontró una voz específica en español. Usando voz predeterminada.");
         }
       };
 
@@ -190,71 +180,15 @@
       speechSynthesis.speak(voz);
       voz.onend = () => {
         isSpeaking = false;
-        // Reinicia el reconocimiento SOLO si el micrófono está habilitado y el asistente no está apagado
-        if (isMicPermissionGranted && estadoDiv.textContent !== "💤 E.L.I.A.N. se ha apagado.") {
-            // Esperar un pequeño margen para que la voz termine completamente antes de reiniciar
+        // Reiniciar reconocimiento solo si no se ha apagado y no está hablando
+        if (estadoDiv.textContent !== "💤 E.L.I.A.N. se ha apagado." && !isSpeaking) {
+            // Pequeña pausa para asegurar que el evento onend de habla termine
             setTimeout(() => {
-                reconocimiento.start();
-            }, 500); 
+                if(reconocimiento) reconocimiento.start();
+            }, 100);
         }
       };
     }
-
-    // --- Solicitud de Permisos y Manejo de Inicialización ---
-
-    async function solicitarPermisos() {
-      estadoDiv.textContent = "🛡️ Solicitando permisos...";
-      errorDiv.textContent = "";
-
-      const micPermission = await navigator.permissions.query({ name: 'microphone' });
-      if (micPermission.state === 'granted' || micPermission.state === 'prompt') {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          console.log("🎤 Micrófono activado correctamente.");
-          isMicPermissionGranted = true;
-          estadoDiv.textContent = "✅ Permisos de micrófono concedidos.";
-          // Una vez que el micrófono está listo, podemos iniciar el reconocimiento
-          iniciarReconocimiento();
-        } catch (err) {
-          console.error("❌ Error al activar el micrófono:", err);
-          errorDiv.textContent = `⚠️ No se pudo acceder al micrófono: ${err.message}. Por favor, habilite el acceso en la configuración de su dispositivo.`;
-          estadoDiv.textContent = "❌ Error de micrófono.";
-          hablar("No he podido acceder a tu micrófono. Por favor, asegúrate de que el permiso esté habilitado en la configuración de tu navegador o dispositivo.");
-        }
-      } else {
-        // Permiso denegado permanentemente o bloqueado
-        console.error("❌ Permiso de micrófono denegado o bloqueado.");
-        errorDiv.textContent = "❌ Permiso de micrófono denegado o bloqueado. Revise la configuración de su navegador/dispositivo.";
-        estadoDiv.textContent = "❌ Permiso de micrófono denegado.";
-        hablar("El acceso al micrófono ha sido bloqueado permanentemente. No podré escucharte.");
-      }
-
-      // NOTA SOBRE UBICACIÓN Y LLAMADAS:
-      // En aplicaciones web estándar, el acceso directo a Ubicación y Llamadas es limitado.
-      // Se pueden *enlazar* a ellas, pero no *acceder* programáticamente sin intervención del usuario.
-      // Para un acceso real, necesitarías una App Nativa o un wrapper (como Cordova/Capacitor) con permisos específicos.
-
-      // Ejemplo de cómo enlazar a la ubicación (abre la aplicación de mapas del usuario)
-      // Este código se ejecutaría dentro de una función de comando, por ejemplo:
-      /*
-      if (textoNormalizado.includes("mostrar mi ubicacion")) {
-          window.open("geo:0,0?q=Mi Ubicacion"); // O usa window.navigator.geolocation si el permiso se concede
-          hablar("Abriendo mapa para mostrar tu ubicación.");
-      }
-      */
-      
-      // Ejemplo de cómo enlazar a hacer una llamada (abre la aplicación de teléfono)
-      // Este código se ejecutaría dentro de una función de comando, por ejemplo:
-      /*
-      if (textoNormalizado.includes("llamar a")) {
-          const numero = textoNormalizado.replace("llamar a", "").trim(); // Simplificado, necesitaría parseo de número
-          window.location.href = `tel:${numero}`; // Abre la app de teléfono
-          hablar(`Iniciando llamada al número ${numero}.`);
-      }
-      */
-    }
-
-    // --- Procesamiento de Comandos ---
 
     async function procesarComando(texto) {
       const textoNormalizado = texto.toLowerCase().trim();
@@ -265,19 +199,18 @@
         if (reconocimiento) {
             reconocimiento.stop();
         }
+        // Opcional: detener el stream de audio si se mantiene activo
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            mediaStream = null;
+        }
         return;
-      }
-
-      // Solo procesar comandos si el micrófono está activo y no estamos hablando
-      if (!isMicPermissionGranted || isSpeaking) {
-          console.log("Esperando permiso de microfono o fin de habla...");
-          return;
       }
 
       estadoDiv.textContent = "🧠 E.L.I.A.N. está pensando...";
 
       try {
-        const apiKey = "AIzaSyAS_N-kiSDdKqCiHrDE1q68H83vFgkeyJY"; // ¡Revisa la validez de esta API Key!
+        const apiKey = "AIzaSyAS_N-kiSDdKqCiHrDE1q68H83vFgkeyJY";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
         
         const payload = {
@@ -295,7 +228,7 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Error en la API: ${response.statusText} (${response.status})`);
+          throw new Error(`Error en la API: ${response.statusText}`);
         }
 
         const result = await response.json();
@@ -315,73 +248,60 @@
       }
     }
 
-    // --- Configuración de SpeechRecognition ---
-
-    function setupSpeechRecognition() {
+    function iniciarReconocimiento() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
       if (!SpeechRecognition) {
         estadoDiv.textContent = "❌ Su navegador no soporta el reconocimiento de voz.";
         errorDiv.textContent = "Utilice Google Chrome o Microsoft Edge.";
         hablar("Me temo que su navegador no es compatible. Le recomiendo utilizar Google Chrome o Microsoft Edge.");
-        return false; // Indica que no se pudo configurar
+        return;
       }
 
       reconocimiento = new SpeechRecognition();
       reconocimiento.lang = "es-ES";
-      reconocimiento.interimResults = false; // Solo obtener resultados finales
-      reconocimiento.continuous = false; // Detenerse después de una pausa en el habla
+      reconocimiento.interimResults = false;
+      reconocimiento.continuous = false; // false para detener al final de la frase
 
       reconocimiento.onstart = () => {
-        console.log("SpeechRecognition: Iniciado.");
-        // Solo actualizar si el micrófono está realmente concedido y no estamos apagando
-        if (isMicPermissionGranted && estadoDiv.textContent !== "💤 E.L.I.A.N. se ha apagado.") {
-          estadoDiv.textContent = "🎙️ E.L.I.A.N. está a la espera de sus órdenes...";
-        }
+        estadoDiv.textContent = "🎙️ E.L.I.A.N. está a la espera de sus órdenes...";
         errorDiv.textContent = "";
       };
 
       reconocimiento.onresult = (event) => {
         const texto = event.results[0][0].transcript;
-        console.log("Voz detectada:", texto);
         procesarComando(texto);
       };
 
       reconocimiento.onerror = (event) => {
-        console.error("SpeechRecognition Error:", event.error);
-        // Errores comunes: "no-speech" (no detectó habla), "audio-capture" (problema con el micro)
-        if (event.error === "no-speech") {
-            errorDiv.textContent = "⚠️ No se detectó habla. Reiniciando...";
-        } else if (event.error === "audio-capture") {
-            errorDiv.textContent = "⚠️ Problema con el micrófono. Reiniciando...";
-            isMicPermissionGranted = false; // Considerar que el micro podría estar bloqueado
-            // Intentar solicitar permisos de nuevo si hay un problema de captura
-            setTimeout(solicitarPermisos, 2000); 
+        console.error("Speech Recognition Error:", event.error);
+        errorDiv.textContent = `⚠️ Error: ${event.error}. Reiniciando en 2 segundos...`;
+        // Si el error es de permisos, no intentar reiniciar para evitar bucles
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+            // Puede ser un error temporal o relacionado con el silencio
+        } else if (event.error === 'not-allowed') {
+            errorDiv.textContent = `⚠️ Error de permisos. Por favor, asegúrese de haber otorgado acceso al micrófono.`;
+            hablar("No tengo permiso para acceder al micrófono. Por favor, revise la configuración de su dispositivo o navegador.");
+            return; // Detener el reinicio si es un error de permisos
         }
-        else {
-            errorDiv.textContent = `⚠️ Error: ${event.error}. Reiniciando en 2 segundos...`;
-        }
-        // Reiniciar reconocimiento después de un error, SOLO si el asistente está activo
+        
         setTimeout(() => {
-          if (estadoDiv.textContent !== "💤 E.L.I.A.N. se ha apagado.") {
-              if(isMicPermissionGranted) reconocimiento.start(); // Reiniciar si el micro está listo
-              else solicitarPermisos(); // Intentar solicitar permisos si el micro no estágranted
+          if (estadoDiv.textContent !== "💤 E.L.I.A.N. se ha apagado." && !isSpeaking) {
+              reconocimiento.start();
           }
         }, 2000);
       };
 
       reconocimiento.onend = () => {
-        console.log("SpeechRecognition: Finalizado.");
-        // Si no estamos hablando y el asistente está activo, intentamos reiniciar el reconocimiento.
-        if (!isSpeaking && estadoDiv.textContent !== "💤 E.L.I.A.N. se ha apagado." && isMicPermissionGranted) {
-          console.log("Reiniciando SpeechRecognition...");
+        // Solo reiniciar si no se ha apagado manualmente y no está hablando
+        if (estadoDiv.textContent !== "💤 E.L.I.A.N. se ha apagado." && !isSpeaking) {
           reconocimiento.start();
         }
       };
-      return true; // Indica que se configuró correctamente
-    }
 
-    // --- Inicialización de Partículas y Carga Principal ---
+      // Iniciar el reconocimiento
+      reconocimiento.start();
+    }
 
     function iniciarParticulas() {
       const canvas = document.getElementById("fondo");
@@ -435,23 +355,60 @@
       animar();
     }
 
-    // --- Punto de Entrada Principal ---
+    // *** Bloque de Código Añadido para la Solicitud de Permisos ***
+    // Este bloque se ejecutará al cargar la página.
+    // En un navegador web, esto mostrará los diálogos de permiso.
+    // En una app híbrida, este código interactúa con el framework para solicitar permisos nativos.
+    async function solicitarPermisos() {
+        try {
+            // Solicitar permiso de micrófono
+            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log("🎤 Micrófono activado correctamente.");
 
-    window.onload = () => {
-      iniciarParticulas(); // Las partículas se inician primero para que el fondo esté listo
-      
-      // Configurar el reconocimiento de voz, pero no iniciarlo hasta tener permiso de micrófono
-      const recognitionConfigured = setupSpeechRecognition();
-      
-      if (recognitionConfigured) {
-        solicitarPermisos(); // Solicitar permisos de micrófono al cargar la página
-      } else {
-        // Si el navegador no soporta SpeechRecognition, mostrar el error
-        estadoDiv.textContent = "❌ Su navegador no soporta el reconocimiento de voz.";
-        errorDiv.textContent = "Utilice Google Chrome o Microsoft Edge.";
-        hablar("Me temo que su navegador no es compatible. Le recomiendo utilizar Google Chrome o Microsoft Edge.");
-      }
-    };
+            // Para ubicación y llamadas, estas APIs no son parte de getUserMedia
+            // y requieren un framework híbrido (como Cordova/Capacitor) para interactuar
+            // con las APIs nativas del dispositivo.
+            // Si estás usando una herramienta No-Code/Web2App, ella se encargará de esto.
+            // Si estás usando Cordova/Capacitor, necesitarás añadir sus plugins y llamar
+            // a sus métodos específicos (ej. navigator.geolocation, window.plugins.CallNumber).
+
+            // Aquí puedes añadir la llamada para solicitar permiso de ubicación si es necesario,
+            // pero su implementación completa depende del entorno (web vs. híbrido).
+            // navigator.geolocation.getCurrentPosition( // Esto solicitará permiso de ubicación en navegadores
+
+        } catch (err) {
+            console.error("❌ Error al solicitar permisos:", err);
+            let mensajeError = `⚠️ `;
+            if (err.name === 'NotAllowedError' || err.message.includes('permission denied')) {
+                mensajeError += `Permiso denegado para `;
+            } else if (err.name === 'NotFoundError' || err.message.includes('not found')) {
+                 mensajeError += `Dispositivo no encontrado (ej. micrófono no disponible) `;
+            } else {
+                mensajeError += `Error desconocido `;
+            }
+
+            if (err.message.includes('audio')) mensajeError += `micrófono`;
+            // Si buscas específicamente errores de ubicación aquí, la lógica sería distinta
+
+            if (errorDiv) {
+                errorDiv.textContent = mensajeError + `: ${err.message}`;
+            }
+            hablar("No tengo acceso al micrófono. Por favor, revisa los permisos en tu dispositivo o navegador.");
+        }
+    }
+
+    // Ejecutar solicitud de permisos al cargar la página
+    window.addEventListener('load', async () => {
+        await solicitarPermisos(); // Asegurarnos de que los permisos se pidan ANTES de iniciar el reconocimiento
+        hablar("E.L.I.A.N. activado. Estoy listo señor.");
+        iniciarReconocimiento();
+        iniciarParticulas();
+    });
+
+    // Asegúrate de que la función iniciarReconocimiento se llama DESPUÉS de que los permisos
+    // hayan sido solicitados y confirmados (o denegados).
+    // La llamada a iniciarReconocimiento() se movió dentro del evento 'load' después de solicitar permisos.
+
   </script>
 </body>
 </html>
